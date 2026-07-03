@@ -1037,7 +1037,21 @@
           }
           lucide.createIcons();
         } else {
-          container.innerHTML = `<div class="forecast-card" style="grid-column: 1 / -1; color: var(--accent-pink);">❌ 載入失敗: ${data.message}</div>`;
+          // 判斷是否為缺少金鑰的錯誤，給予友善引導
+          let msg = data.message;
+          if (msg.includes("金鑰") || msg.includes("CWA_API_KEY") || msg.includes("授權")) {
+            msg = `⚠️ 請於右側「自訂 API 設定」中輸入您的中央氣象署 (CWA) API 金鑰，並勾選啟用，然後點擊「同步資料庫」以獲取天氣資料。`;
+            container.innerHTML = `<div class="forecast-card" style="grid-column: 1 / -1; color: #f59e0b; padding: 2rem; border-color: rgba(245, 158, 11, 0.3); font-weight: 500; font-size: 0.95rem; text-align: center; background: rgba(245, 158, 11, 0.05); border-radius: 12px; width: 100%; border: 1px solid rgba(245, 158, 11, 0.25);">
+              <i data-lucide="alert-triangle" style="width:24px; height:24px; margin: 0 auto 0.75rem auto; color: #f59e0b; display: block;"></i>
+              ${msg}
+            </div>`;
+          } else {
+            container.innerHTML = `<div class="forecast-card" style="grid-column: 1 / -1; color: var(--accent-pink); font-size: 0.95rem;">❌ 載入失敗: ${msg}</div>`;
+          }
+          if (tempChart) {
+            tempChart.destroy();
+            tempChart = null;
+          }
         }
       } catch (err) {
         console.error('載入天氣錯誤:', err);
@@ -1186,8 +1200,14 @@
           timeBadge.textContent = `生成於 ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
           lucide.createIcons();
         } else {
-          aiContent.innerHTML = `<p style="color: var(--accent-pink);">🤖 AI 助理產生建議時發生錯誤：${data.message}</p>`;
-          timeBadge.textContent = '生成失敗';
+          let msg = data.message;
+          if (msg.includes("金鑰") || msg.includes("OPENAI_API_KEY") || msg.includes("氣象資料") || msg.includes("氣象")) {
+            msg = `🤖 歡迎使用 AI 天氣助理！<br><br>請先完成以下步驟以載入分析：<br>1. 於右側設定面板中填入並勾選啟用您的 **CWA API 金鑰**，然後點擊上方「同步資料庫」按鈕。<br>2. 輸入您的 **AI 金鑰** (Gemini 或 OpenAI) 以開啟智慧穿搭分析。<br><br>*註：若未填入 AI 金鑰，系統在資料庫同步後會自動調用「本地內建規則」為您生成生活建議。`;
+            aiContent.innerHTML = `<p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">${msg}</p>`;
+          } else {
+            aiContent.innerHTML = `<p style="color: var(--accent-pink);">🤖 AI 助理產生建議時發生錯誤：${msg}</p>`;
+          }
+          timeBadge.textContent = '準備就緒';
         }
       } catch (err) {
         console.error('AI 建議獲取失敗:', err);
@@ -1196,38 +1216,44 @@
       }
     }
 
-    // 更新整個儀表板視圖
-    async function updateView() {
-      await loadWeatherData(currentCounty, currentTab);
-      await loadAILifeAdvice(currentCounty, false, currentTab);
+    // 更新整個儀表板視圖 (非阻塞並行加載)
+    function updateView() {
+      // 優先且立即可見地加載地圖，不要被任何 API 連線或解析阻塞
       updateWindyMap(currentCounty);
+      
+      // 異步平行加載天氣資料與 AI 建議，互不影響
+      loadWeatherData(currentCounty, currentTab);
+      loadAILifeAdvice(currentCounty, false, currentTab);
     }
 
     // 切換預報分頁頁籤
-    async function switchForecastTab(tab) {
+    function switchForecastTab(tab) {
       if (currentTab === tab) return;
       currentTab = tab;
       
       document.getElementById('tab36h').classList.toggle('active', tab === '36h');
       document.getElementById('tabWeekly').classList.toggle('active', tab === 'weekly');
       
-      await updateView();
+      updateView();
     }
 
     // 初始化與監聽器
     document.addEventListener('DOMContentLoaded', async () => {
+      // 網頁啟動時最優先且直接呈現 Windy 地圖，杜絕白屏阻擋
+      updateWindyMap(currentCounty);
+      
       await loadCounties();
-      await updateView();
+      updateView();
       
       // 縣市切換監聽
-      document.getElementById('countySelect').addEventListener('change', async (e) => {
+      document.getElementById('countySelect').addEventListener('change', (e) => {
         currentCounty = e.target.value;
-        await updateView();
+        updateView();
       });
 
       // 重新生成 AI 分析按鈕
-      document.getElementById('btnAskAI').addEventListener('click', async () => {
-        await loadAILifeAdvice(currentCounty, true, currentTab);
+      document.getElementById('btnAskAI').addEventListener('click', () => {
+        loadAILifeAdvice(currentCounty, true, currentTab);
       });
 
       // 手動同步全部氣象資料
@@ -1263,7 +1289,7 @@
           
           if (data.success) {
             alert(data.message);
-            await updateView();
+            updateView();
           } else {
             alert(`同步失敗: ${data.message}`);
             dot.className = 'status-dot';
