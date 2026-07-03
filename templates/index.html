@@ -940,7 +940,12 @@
 
       try {
         const res = await fetch(url);
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          throw new Error(`伺服器回傳格式異常 (HTTP ${res.status})`);
+        }
 
         if (data.success) {
           container.innerHTML = '';
@@ -1213,7 +1218,12 @@
 
       try {
         const res = await fetch(url);
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          throw new Error(`伺服器回傳格式異常 (HTTP ${res.status})`);
+        }
 
         if (data.success) {
           aiContent.innerHTML = marked.parse(data.advice);
@@ -1313,7 +1323,12 @@
 
         try {
           const res = await fetch(url, { method: 'POST' });
-          const data = await res.json();
+          let data;
+          try {
+            data = await res.json();
+          } catch (jsonErr) {
+            throw new Error(`伺服器回傳格式異常 (HTTP ${res.status})`);
+          }
           
           if (data.success) {
             alert(data.message);

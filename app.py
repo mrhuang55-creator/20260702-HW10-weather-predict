@@ -312,6 +312,31 @@ def manual_sync():
             "message": f"伺服器錯誤: {str(e)}"
         }), 500
 
+
+@app.errorhandler(404)
+def handle_404(e):
+    return jsonify({
+        "success": False,
+        "message": "請求路徑不存在 (404)。"
+    }), 404
+
+
+@app.errorhandler(405)
+def handle_405(e):
+    return jsonify({
+        "success": False,
+        "message": "請求方法不允許 (405)。"
+    }), 405
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    return jsonify({
+        "success": False,
+        "message": "伺服器內部錯誤 (500)。"
+    }), 500
+
+
 # 啟動時自動初始化資料庫並自動背景同步
 with app.app_context():
     try:
