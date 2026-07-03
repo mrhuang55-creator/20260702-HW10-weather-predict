@@ -42,6 +42,18 @@ _sync_lock = threading.Lock()
 _sync_in_progress = False
 
 
+def clean_api_key(key):
+    """清理可能帶有變數名稱前綴的金鑰 (如 'CWA_API_KEY=CWA-xxx' -> 'CWA-xxx')"""
+    if not key:
+        return key
+    key = key.strip()
+    if "=" in key:
+        parts = key.split("=", 1)
+        if parts[0].strip().upper() in ["CWA_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "API_KEY", "CWA_TOKEN"]:
+            key = parts[1].strip()
+    return key
+
+
 def _run_sync_in_background(cwa_key=None):
     """在独立執行緒執行資料同步，避免陰塞 Flask 請求"""
     global _sync_in_progress
@@ -120,7 +132,7 @@ def get_weather():
     try:
         # 自動同步或查詢
         use_custom_cwa = request.args.get("use_custom_cwa", "false").lower() == "true"
-        cwa_key = request.args.get("cwa_key", "").strip() if use_custom_cwa else None
+        cwa_key = clean_api_key(request.args.get("cwa_key", "")) if use_custom_cwa else None
         forecasts = check_and_auto_sync(location, cwa_key=cwa_key)
         
         if not forecasts:
@@ -165,12 +177,12 @@ def get_ai_advice():
     try:
         # 取得自訂氣象局金鑰並同步 (確保資料庫有資料)
         use_custom_cwa = request.args.get("use_custom_cwa", "false").lower() == "true"
-        cwa_key = request.args.get("cwa_key", "").strip() if use_custom_cwa else None
+        cwa_key = clean_api_key(request.args.get("cwa_key", "")) if use_custom_cwa else None
         check_and_auto_sync(location, cwa_key=cwa_key)
         
         # 取得自訂 AI 參數
         use_custom = request.args.get("use_custom", "false").lower() == "true"
-        custom_key = request.args.get("api_key", "").strip()
+        custom_key = clean_api_key(request.args.get("api_key", ""))
         
         # 自動判別端點
         custom_provider = "Opencode"
@@ -241,7 +253,7 @@ def get_weekly_weather():
     try:
         # 自動同步或查詢
         use_custom_cwa = request.args.get("use_custom_cwa", "false").lower() == "true"
-        cwa_key = request.args.get("cwa_key", "").strip() if use_custom_cwa else None
+        cwa_key = clean_api_key(request.args.get("cwa_key", "")) if use_custom_cwa else None
         check_and_auto_sync(location, cwa_key=cwa_key)
         weekly_forecasts = weather.get_weekly_forecasts(location)
         
@@ -274,12 +286,12 @@ def manual_sync():
     """手動同步中央氣象署資料"""
     cwa_key = None
     use_custom_cwa = request.args.get("use_custom_cwa", "false").lower() == "true"
-    cwa_key = request.args.get("cwa_key", "").strip() if use_custom_cwa else None
+    cwa_key = clean_api_key(request.args.get("cwa_key", "")) if use_custom_cwa else None
     
     if not cwa_key and request.is_json:
         req_data = request.json or {}
         if req_data.get("use_custom_cwa"):
-            cwa_key = req_data.get("cwa_key", "").strip()
+            cwa_key = clean_api_key(req_data.get("cwa_key", ""))
             
     try:
         success = weather.sync_weather_data(cwa_key=cwa_key)

@@ -924,7 +924,14 @@
       const chkCwa = document.getElementById('chkUseCustomCwa');
       const txtCwa = document.getElementById('txtCwaApiKey');
       const useCwa = chkCwa && chkCwa.checked;
-      const cwaKey = txtCwa ? txtCwa.value.trim() : '';
+      const rawCwaKey = txtCwa ? txtCwa.value.trim() : '';
+      let cwaKey = rawCwaKey;
+      if (cwaKey.includes('=')) {
+        const parts = cwaKey.split('=');
+        if (['CWA_API_KEY', 'CWA_TOKEN', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'API_KEY'].includes(parts[0].trim().toUpperCase())) {
+          cwaKey = parts.slice(1).join('=').trim();
+        }
+      }
 
       let url = `${apiEndpoint}?location=${encodeURIComponent(county)}`;
       if (useCwa && cwaKey) {
@@ -1174,13 +1181,27 @@
       const chkCustomApi = document.getElementById('chkUseCustomApi');
       const txtCustomApiKey = document.getElementById('txtCustomApiKey');
       const useAI = chkCustomApi && chkCustomApi.checked;
-      const apiKey = txtCustomApiKey ? txtCustomApiKey.value.trim() : '';
+      const rawApiKey = txtCustomApiKey ? txtCustomApiKey.value.trim() : '';
+      let apiKey = rawApiKey;
+      if (apiKey.includes('=')) {
+        const parts = apiKey.split('=');
+        if (['CWA_API_KEY', 'CWA_TOKEN', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'API_KEY'].includes(parts[0].trim().toUpperCase())) {
+          apiKey = parts.slice(1).join('=').trim();
+        }
+      }
 
       // 讀取自訂 CWA 設定
       const chkCwa = document.getElementById('chkUseCustomCwa');
       const txtCwa = document.getElementById('txtCwaApiKey');
       const useCwa = chkCwa && chkCwa.checked;
-      const cwaKey = txtCwa ? txtCwa.value.trim() : '';
+      const rawCwaKey = txtCwa ? txtCwa.value.trim() : '';
+      let cwaKey = rawCwaKey;
+      if (cwaKey.includes('=')) {
+        const parts = cwaKey.split('=');
+        if (['CWA_API_KEY', 'CWA_TOKEN', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'API_KEY'].includes(parts[0].trim().toUpperCase())) {
+          cwaKey = parts.slice(1).join('=').trim();
+        }
+      }
 
       let url = `/api/ai_advice?location=${encodeURIComponent(county)}&force_refresh=${force}&type=${tab}`;
       if (useAI && apiKey) {
@@ -1276,7 +1297,14 @@
         const chkCwa = document.getElementById('chkUseCustomCwa');
         const txtCwa = document.getElementById('txtCwaApiKey');
         const useCwa = chkCwa && chkCwa.checked;
-        const cwaKey = txtCwa ? txtCwa.value.trim() : '';
+        const rawCwaKey = txtCwa ? txtCwa.value.trim() : '';
+        let cwaKey = rawCwaKey;
+        if (cwaKey.includes('=')) {
+          const parts = cwaKey.split('=');
+          if (['CWA_API_KEY', 'CWA_TOKEN', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'API_KEY'].includes(parts[0].trim().toUpperCase())) {
+            cwaKey = parts.slice(1).join('=').trim();
+          }
+        }
 
         let url = '/api/sync';
         if (useCwa && cwaKey) {

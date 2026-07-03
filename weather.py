@@ -259,6 +259,13 @@ def sync_weather_data(cwa_key=None):
         logger.error("未找到 CWA_API_KEY，同步失敗！")
         return False
         
+    # 清洗可能帶有變數名稱的前綴（例如 "CWA_API_KEY=CWA-xxx" -> "CWA-xxx"）
+    api_key = api_key.strip()
+    if "=" in api_key:
+        parts = api_key.split("=", 1)
+        if parts[0].strip().upper() in ["CWA_API_KEY", "CWA_TOKEN"]:
+            api_key = parts[1].strip()
+        
     logger.info("開始從中央氣象署 API 同步天氣資料...")
     params = {
         "Authorization": api_key,
