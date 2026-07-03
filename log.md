@@ -61,6 +61,29 @@
 
 ---
 
+### 🛡️ 第五階段：安全推播與品質保證自動化工作流 (2026-07-03)
+*   **核心工作**：
+    - 撰寫 [scripts/validate_push.py](file:///f:/HW10-20260702-天氣預報/scripts/validate_push.py)，實現 Python 靜態語法檢查、index.html DOM 元件 ID 完整性掃描、敏感 API 金鑰洩漏掃描、以及在臨時 Port 5055 啟動 Flask 測試伺服器實測 HTTP 路由響應。
+    - 配置 Git Pre-push Hook（[.git/hooks/pre-push](file:///f:/HW10-20260702-天氣預報/.git/hooks/pre-push)），在每次 `git push` 前強制執行上述測試。僅測試全部通過時才允許推播。
+
+---
+
+### 🚀 第六階段：免 CLI 自動化啟動與部署簡化 (2026-07-03)
+*   **核心工作**：
+    - 修改 [app.py](file:///f:/HW10-20260702-天氣預報/app.py) 啟動區塊，伺服器啟動時自動呼叫 `weather.init_db()` 並派發背景 Daemon Thread 執行首次全國 22 縣市天氣同步，無須手動 CLI。
+    - 重寫 [README.md](file:///f:/HW10-20260702-天氣預報/README.md)「執行與測試」章節，移除所有手動 CLI 指令，簡化為「一鍵啟動」。
+
+---
+
+### 🔧 第七階段：外網部署容錯與使用者輸入防禦 (2026-07-03)
+*   **核心工作**：
+    - **API 金鑰輸入容錯**：在 [app.py](file:///f:/HW10-20260702-天氣預報/app.py) 新增 `clean_api_key()` 函式，自動剝離使用者誤貼的變數名前綴（如 `CWA_API_KEY=`）。前後端雙重防禦。
+    - **全域 JSON 錯誤處理器**：在 [app.py](file:///f:/HW10-20260702-天氣預報/app.py) 註冊 `@app.errorhandler(404/405/500)` 全域攔截器，統一回傳 JSON，杜絕前端因解析 HTML 錯誤頁而崩潰（`SyntaxError: Unexpected token '<'`）。
+    - **前端 JSON 解析安全包裹**：在 [templates/index.html](file:///f:/HW10-20260702-天氣預報/templates/index.html) 所有 `res.json()` 呼叫外層加上 `try...catch`，優雅降級顯示友善錯誤訊息。
+
+---
+
 ## 🎉 目前狀態 (Current Status)
-*   **狀態**：第四階段優化與當機診斷已全部順利開發並驗證完成，系統在 Windows 本地開發環境下運作非常流暢穩定。
+*   **狀態**：第七階段容錯強化已完成並推播。系統已具備完整的本地與外網（Render）部署能力，含自動化推播前測試、免 CLI 自動初始化同步、金鑰輸入防呆與全域錯誤攔截。
+
 
