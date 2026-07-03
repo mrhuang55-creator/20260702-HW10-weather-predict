@@ -113,6 +113,15 @@ def run_dynamic_server_check():
     log_info("正在啟動臨時本地測試伺服器以驗證 API 路由動態響應...")
     port = 5055
     
+    # 優先使用本機的虛擬環境 python
+    python_exe = sys.executable
+    win_venv = os.path.join('venv', 'Scripts', 'python.exe')
+    unix_venv = os.path.join('venv', 'bin', 'python')
+    if os.path.exists(win_venv):
+        python_exe = win_venv
+    elif os.path.exists(unix_venv):
+        python_exe = unix_venv
+    
     # 設定環境變數
     test_env = os.environ.copy()
     test_env['PORT'] = str(port)
@@ -122,7 +131,7 @@ def run_dynamic_server_check():
     process = None
     try:
         process = subprocess.Popen(
-            [sys.executable, 'app.py'],
+            [python_exe, 'app.py'],
             env=test_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
