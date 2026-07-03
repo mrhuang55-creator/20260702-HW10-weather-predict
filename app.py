@@ -300,13 +300,17 @@ def manual_sync():
             "message": f"伺服器錯誤: {str(e)}"
         }), 500
 
-# 啟動時自動初始化資料庫
+# 啟動時自動初始化資料庫並自動背景同步
 with app.app_context():
     try:
         weather.init_db()
         logger.info("應用程式啟動：資料庫檢查與初始化成功。")
+        # 背景非阻塞式進行首次全縣市同步，避免主執行緒阻塞
+        thread = threading.Thread(target=_run_sync_in_background, args=(None,), daemon=True)
+        thread.start()
+        logger.info("已於背景啟動首次全縣市天氣同步任務。")
     except Exception as e:
-        logger.critical(f"應用程式啟動時初始化資料庫失敗: {e}")
+        logger.critical(f"應用程式啟動時初始化或同步失敗: {e}")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

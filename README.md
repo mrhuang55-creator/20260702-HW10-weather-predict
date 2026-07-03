@@ -133,24 +133,18 @@ DISABLE_SSL_VERIFY=true
 
 ## 🚀 執行與測試
 
-### 1. 手動初始化與同步測試
-您可以在終端機執行 `weather.py` 進行資料庫管理與爬蟲同步測試：
-```bash
-# 初始化資料庫表格
-.\venv\Scripts\python.exe weather.py --init-db
+本系統支援 **「直接啟動、自初始化與自動背景同步」**。不需要手動執行命令列的資料庫建立或同步指令。
 
-# 手動同步中央氣象署 API 資料至資料庫
-.\venv\Scripts\python.exe weather.py --sync
-```
-
-### 2. 啟動 Flask 網頁伺服器
+### 1. 啟動網頁伺服器
 執行 `app.py` 啟動主服務：
 ```bash
-# 啟動應用程式
+# 啟動應用程式 (系統會自動在背景建表並拉取氣象資料)
 .\venv\Scripts\python.exe app.py
 ```
 啟動後，請使用瀏覽器開啟以下網址進入天氣儀表板首頁：
 👉 **[http://127.0.0.1:5000](http://127.0.0.1:5000)**
+
+*(註：若您是在 Render 雲端平台部署，同樣只需將啟動命令設為 `gunicorn app:app` 或 `python app.py`，伺服器便會在啟動時自行在背景建立資料表並同步最新氣象資料。)*
 
 ---
 
