@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 智慧天氣預報儀表板</title>
+  <meta name="description" content="結合中央氣象署 API 與 OpenAI 的台灣縣市 AI 智慧天氣分析預報系統。">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Marked.js (Markdown Parser) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%);
+      --glass-bg: rgba(15, 23, 42, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-active-border: rgba(99, 102, 241, 0.4);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent-indigo: #6366f1;
+      --accent-purple: #a855f7;
+      --accent-pink: #ec4899;
+      --accent-cyan: #06b6d4;
+      --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+      background: linear-gradient(rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.45)), url('/static/summer_beach_bg.png') no-repeat center center fixed;
+      background-size: cover;
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1280px;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Header Styling */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .brand-section h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fff 30%, #a855f7 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-section p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .btn {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      padding: 0.6rem 1.2rem;
+      border-radius: 9999px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: var(--transition);
+      backdrop-filter: blur(12px);
+    }
+
+    .btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--accent-indigo);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-indigo) 0%, var(--accent-purple) 100%);
+      border: none;
+      box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+      box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.6);
+      border: none;
+    }
+
+    .sync-status {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+      display: inline-block;
+    }
+
+    .status-dot.syncing {
+      background-color: #f59e0b;
+      box-shadow: 0 0 10px #f59e0b;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.6; }
+    }
+
+    /* Main Dashboard Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+      .dashboard-grid {
+        grid-template-columns: 1.2fr 0.8fr;
+      }
+    }
+
+    /* Control Panel & Selector */
+    .control-panel {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      box-shadow: var(--card-shadow);
+      backdrop-filter: blur(16px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .selector-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .selector-label {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .custom-select {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--glass-border);
+      color: var(--text-primary);
+      padding: 0.75rem 1.25rem;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+      transition: var(--transition);
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 1.2rem;
+      padding-right: 2.5rem;
+    }
+
+    .custom-select:focus {
+      border-color: var(--accent-indigo);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    /* Forecast Area */
+    .forecast-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .forecast-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 640px) {
+      .forecast-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .forecast-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      box-shadow: var(--card-shadow);
+      backdrop-filter: blur(16px);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+    }
+
+    .forecast-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+      opacity: 0.7;
+    }
+
+    .forecast-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--glass-active-border);
+      box-shadow: 0 12px 30px rgba(99, 102, 241, 0.15);
+    }
+
+    .time-badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      width: fit-content;
+    }
+
+    .weather-icon-wrapper {
+      width: 70px;
+      height: 70px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0.5rem 0;
+      color: var(--accent-cyan);
+    }
+
+    .forecast-card:hover .weather-icon-wrapper {
+      animation: rotate-icon 0.8s ease-in-out;
+    }
+
+    @keyframes rotate-icon {
+      0% { transform: rotate(0); }
+      50% { transform: rotate(15deg) scale(1.1); }
+      100% { transform: rotate(0); }
+    }
+
+    .weather-desc {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .temp-range {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: baseline;
+      gap: 0.25rem;
+    }
+
+    .temp-unit {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .forecast-stats {
+      width: 100%;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 0.75rem;
+      margin-top: 0.5rem;
+      display: flex;
+      justify-content: space-around;
+      font-size: 0.85rem;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--text-secondary);
+    }
+
+    .stat-val {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* AI Advisor Area */
+    .ai-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .ai-card {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: var(--card-shadow);
+      backdrop-filter: blur(20px);
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      min-height: 450px;
+    }
+
+    .ai-card::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      right: -1px;
+      bottom: -1px;
+      border-radius: 24px;
+      padding: 1px;
+      background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple), var(--accent-pink));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      opacity: 0.4;
+    }
+
+    .ai-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 1rem;
+    }
+
+    .ai-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .ai-content {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text-primary);
+      overflow-y: auto;
+      max-height: 400px;
+      padding-right: 0.5rem;
+    }
+
+    /* AI Advice Markdown Styling */
+    .ai-content h3 {
+      font-size: 1.2rem;
+      margin: 1.2rem 0 0.6rem;
+      color: var(--accent-indigo);
+      font-weight: 600;
+    }
+
+    .ai-content h4 {
+      font-size: 1.05rem;
+      margin: 1rem 0 0.5rem;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .ai-content p {
+      margin-bottom: 0.75rem;
+    }
+
+    .ai-content ul {
+      margin-left: 1.25rem;
+      margin-bottom: 0.75rem;
+      list-style-type: none;
+    }
+
+    .ai-content li {
+      margin-bottom: 0.4rem;
+      position: relative;
+    }
+
+    .ai-content blockquote {
+      border-left: 4px solid var(--accent-purple);
+      background: rgba(168, 85, 247, 0.05);
+      padding: 0.75rem 1rem;
+      border-radius: 0 12px 12px 0;
+      margin: 1rem 0;
+      font-style: italic;
+      color: #cbd5e1;
+    }
+
+    /* Scrollbar */
+    .ai-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    .ai-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .ai-content::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
+    }
+    .ai-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Skeletons & Loaders */
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+      background-size: 200% 100%;
+      animation: loading-skeleton 1.5s infinite;
+      border-radius: 12px;
+    }
+
+    @keyframes loading-skeleton {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .forecast-skeleton {
+      height: 250px;
+    }
+
+    .ai-skeleton {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+    }
+
+    .ai-skeleton-line {
+      height: 1.25rem;
+      width: 100%;
+    }
+
+    .ai-skeleton-line:nth-child(2) { width: 90%; }
+    .ai-skeleton-line:nth-child(3) { width: 80%; }
+    .ai-skeleton-line:nth-child(4) { width: 95%; }
+    .ai-skeleton-line:nth-child(5) { width: 60%; }
+
+    /* Footer */
+    footer {
+      margin-top: 4rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--glass-border);
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      width: 100%;
+    }
+
+    footer a {
+      color: var(--accent-indigo);
+      text-decoration: none;
+      transition: var(--transition);
+    }
+
+    footer a:hover {
+      color: var(--accent-purple);
+      text-decoration: underline;
+    }
+
+    /* Icon mapping styles */
+    .icon-sun { color: #f59e0b; filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.4)); }
+    .icon-cloud-sun { color: #38bdf8; filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.3)); }
+    .icon-cloud { color: #94a3b8; filter: drop-shadow(0 0 12px rgba(148, 163, 184, 0.3)); }
+    .icon-rain { color: #06b6d4; filter: drop-shadow(0 0 12px rgba(6, 182, 212, 0.4)); }
+    .icon-thunder { color: #a855f7; filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.4)); }
+
+    /* Tabs styling */
+    .tabs-container {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 0.5rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0.5rem 0.5rem;
+      position: relative;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-indigo);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -0.6rem;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: var(--accent-indigo);
+      border-radius: 99px;
+    }
+
+    .forecast-grid.weekly-layout {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      max-height: 520px;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .forecast-grid.weekly-layout::-webkit-scrollbar {
+      width: 6px;
+    }
+    .forecast-grid.weekly-layout::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .forecast-grid.weekly-layout::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
+    }
+    .forecast-grid.weekly-layout::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .api-scroll-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    .api-scroll-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .api-scroll-container::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 99px;
+    }
+    .api-scroll-container::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand-section">
+        <h1><i data-lucide="cloud-sun" style="width:36px; height:36px; color: var(--accent-indigo);"></i> AI 智慧天氣分析儀表板</h1>
+        <p>整合中央氣象署資料與大語言模型，提供您最貼心的穿搭與出行建議</p>
+      </div>
+      <div class="header-actions">
+        <div class="sync-status" id="syncStatus">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="syncText">資料庫連線中</span>
+        </div>
+        <button class="btn" id="btnSyncAll" title="強制重新下載中央氣象署所有最新預報數據">
+          <i data-lucide="refresh-cw" id="syncAllIcon"></i> 同步資料庫
+        </button>
+      </div>
+    </header>
+
+    <!-- Controls -->
+    <main class="control-panel">
+      <div class="selector-group">
+        <label for="countySelect" class="selector-label">選擇關注縣市</label>
+        <select id="countySelect" class="custom-select">
+          <!-- 會由 JS 動態載入 -->
+          <option value="臺北市">臺北市</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="btnAskAI">
+        <i data-lucide="sparkles"></i> 重新生成 AI 分析
+      </button>
+    </main>
+
+    <!-- Grid -->
+    <div class="dashboard-grid">
+      <!-- Left: Weather Forecast -->
+      <section class="forecast-section">
+        <div class="tabs-container">
+          <button class="tab-btn active" id="tab36h" onclick="switchForecastTab('36h')">今明 36 小時預報</button>
+          <button class="tab-btn" id="tabWeekly" onclick="switchForecastTab('weekly')">未來一週預報</button>
+        </div>
+        <!-- Chart.js 溫度趨勢折線圖 -->
+        <div id="chartSection" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 20px; padding: 1.25rem; box-shadow: var(--card-shadow); backdrop-filter: blur(16px); margin-bottom: 1.25rem; height: 260px; position: relative;">
+          <canvas id="tempChart"></canvas>
+        </div>
+        <div class="forecast-grid" id="forecastContainer">
+          <!-- 預報卡片 -->
+          <div class="forecast-card skeleton forecast-skeleton"></div>
+          <div class="forecast-card skeleton forecast-skeleton"></div>
+          <div class="forecast-card skeleton forecast-skeleton"></div>
+        </div>
+      </section>
+
+      <!-- Right: AI Advisory -->
+      <section class="ai-section">
+        <h2 class="section-title">
+          <i data-lucide="bot" style="color: var(--accent-purple);"></i> AI 智慧生活建議
+        </h2>
+        <div class="ai-card">
+          <div class="ai-header">
+            <span class="ai-title">
+              <i data-lucide="sparkles" style="color: var(--accent-purple);"></i>
+              AI 氣象小幫手
+            </span>
+            <span class="time-badge" id="aiGeneratedTime">等待生成</span>
+          </div>
+          
+          <!-- 自訂 API 與氣象局金鑰設定面版 -->
+          <div class="ai-api-settings" style="background: rgba(15, 23, 42, 0.45); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; margin: 1rem 0.5rem 0.5rem 0.5rem;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+              <i data-lucide="settings" style="width: 16px; height: 16px; color: var(--accent-purple);"></i> 自訂 API 設定
+            </span>
+            
+            <!-- 捲軸區域 (Scroll Container) -->
+            <div class="api-scroll-container" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-right: 0.5rem; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;">
+              <!-- Custom AI API section -->
+              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="chkUseCustomApi" style="width: 14px; height: 14px; cursor: pointer;">
+                    <span style="font-weight: 600; color: var(--text-primary);">啟用自訂 AI API</span>
+                  </label>
+                </div>
+                <input type="password" id="txtCustomApiKey" placeholder="輸入 API 金鑰 (自動判別端點)..." style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 0.4rem 0.6rem; border-radius: 8px; font-size: 0.8rem; outline: none; width: 100%;" />
+              </div>
+
+              <!-- Divider -->
+              <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 0.25rem 0;">
+
+              <!-- Custom CWA API section -->
+              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; cursor: pointer; color: var(--text-secondary);">
+                    <input type="checkbox" id="chkUseCustomCwa" style="width: 14px; height: 14px; cursor: pointer;">
+                    <span style="font-weight: 600; color: var(--text-primary);">啟用自訂氣象署金鑰</span>
+                  </label>
+                </div>
+                <input type="password" id="txtCwaApiKey" placeholder="輸入 CWA-XXXXXX 氣象授權碼..." style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 0.4rem 0.6rem; border-radius: 8px; font-size: 0.8rem; outline: none; width: 100%;" />
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-content" id="aiContent">
+            <!-- AI 生成建議內容 -->
+            <div class="ai-skeleton">
+              <div class="skeleton ai-skeleton-line"></div>
+              <div class="skeleton ai-skeleton-line"></div>
+              <div class="skeleton ai-skeleton-line"></div>
+              <div class="skeleton ai-skeleton-line"></div>
+              <div class="skeleton ai-skeleton-line"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Windy Map Section -->
+    <section class="windy-section" style="margin-top: 1rem; width: 100%;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+        <h2 class="section-title" style="margin-bottom: 0;">
+          <i data-lucide="map" style="color: var(--accent-cyan);"></i> Windy 即時氣象雷達與風場觀測
+        </h2>
+        <div class="windy-layers" style="display: flex; gap: 0.5rem; background: var(--glass-bg); padding: 0.25rem; border-radius: 9999px; border: 1px solid var(--glass-border); backdrop-filter: blur(12px);">
+          <button class="layer-btn" onclick="switchWindyLayer('wind')" style="background: var(--accent-indigo); border: none; color: white; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: var(--transition); font-family: inherit;">即時風場</button>
+          <button class="layer-btn" onclick="switchWindyLayer('radar')" style="background: transparent; border: none; color: var(--text-secondary); padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: var(--transition); font-family: inherit;">天氣雷達</button>
+          <button class="layer-btn" onclick="switchWindyLayer('temp')" style="background: transparent; border: none; color: var(--text-secondary); padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: var(--transition); font-family: inherit;">氣溫分佈</button>
+          <button class="layer-btn" onclick="switchWindyLayer('clouds')" style="background: transparent; border: none; color: var(--text-secondary); padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: var(--transition); font-family: inherit;">雲量觀測</button>
+        </div>
+      </div>
+      <div class="windy-card" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 1rem; box-shadow: var(--card-shadow); backdrop-filter: blur(20px); height: 500px; overflow: hidden; position: relative;">
+        <iframe id="windyIframe" src="" style="width: 100%; height: 100%; border: none; border-radius: 16px;" allowfullscreen></iframe>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>© 2026 AI 天氣智慧助理預報系統 | 資料來源：<a href="https://opendata.cwa.gov.tw" target="_blank" rel="noopener noreferrer">交通部中央氣象署開放資料平臺</a></p>
+    </footer>
+  </div>
+
+  <script>
+    // 全域變數
+    let currentCounty = '臺北市';
+    let currentTab = '36h'; // '36h' 或 'weekly'
+    let syncPollTimer = null;
+    let currentLayer = 'wind'; // Windy 圖層: 'wind', 'radar', 'temp', 'clouds'
+    let tempChart = null; // Chart.js 實例
+
+    // 台灣 22 縣市經緯度對照表
+    const COUNTY_COORDINATES = {
+      "臺北市": { lat: 25.0330, lon: 121.5654 },
+      "新北市": { lat: 25.0170, lon: 121.4626 },
+      "桃園市": { lat: 24.9937, lon: 121.3010 },
+      "臺中市": { lat: 24.1477, lon: 120.6736 },
+      "臺南市": { lat: 22.9997, lon: 120.2270 },
+      "高雄市": { lat: 22.6273, lon: 120.3014 },
+      "基隆市": { lat: 25.1283, lon: 121.7419 },
+      "新竹市": { lat: 24.8138, lon: 120.9675 },
+      "新竹縣": { lat: 24.8383, lon: 121.0177 },
+      "苗栗縣": { lat: 24.5601, lon: 120.8207 },
+      "彰化縣": { lat: 24.0519, lon: 120.5161 },
+      "南投縣": { lat: 23.9152, lon: 120.6872 },
+      "雲林縣": { lat: 23.7092, lon: 120.4313 },
+      "嘉義市": { lat: 23.4801, lon: 120.4491 },
+      "嘉義縣": { lat: 23.4519, lon: 120.2559 },
+      "屏東縣": { lat: 22.5515, lon: 120.5488 },
+      "宜蘭縣": { lat: 24.7021, lon: 121.7377 },
+      "花蓮縣": { lat: 23.9872, lon: 121.6016 },
+      "臺東縣": { lat: 22.7972, lon: 121.0772 },
+      "澎湖縣": { lat: 23.5711, lon: 119.5797 },
+      "金門縣": { lat: 24.4497, lon: 118.3780 },
+      "連江縣": { lat: 26.1580, lon: 119.9500 }
+    };
+
+    // 更新 Windy 地圖
+    function updateWindyMap(county) {
+      const coords = COUNTY_COORDINATES[county] || COUNTY_COORDINATES["臺北市"];
+      const iframe = document.getElementById('windyIframe');
+      if (!iframe) return;
+      const zoom = 8;
+      const url = `https://embed.windy.com/embed2.html?lat=${coords.lat}&lon=${coords.lon}&zoom=${zoom}&level=surface&overlay=${currentLayer}&menu=&message=true&marker=&calendar=&pressure=&type=map&location=coordinates&detail=&detailLat=${coords.lat}&detailLon=${coords.lon}&metricWind=default&metricTemp=default&radarRange=-1`;
+      iframe.src = url;
+    }
+
+    // 切換 Windy 圖層
+    function switchWindyLayer(layer) {
+      if (currentLayer === layer) return;
+      currentLayer = layer;
+      
+      const buttons = document.querySelectorAll('.windy-layers .layer-btn');
+      const layers = ['wind', 'radar', 'temp', 'clouds'];
+      buttons.forEach((btn, index) => {
+        const active = (layers[index] === layer);
+        btn.style.backgroundColor = active ? 'var(--accent-indigo)' : 'transparent';
+        btn.style.color = active ? 'white' : 'var(--text-secondary)';
+      });
+      
+      updateWindyMap(currentCounty);
+    }
+
+    // 天氣現象代碼對應 Lucide 圖示與 CSS Class
+    function getWeatherStyle(wxValue, wxDesc) {
+      const val = parseInt(wxValue) || 1;
+      if (val === 1) {
+        return { icon: 'sun', class: 'icon-sun' };
+      } else if (val >= 2 && val <= 3) {
+        return { icon: 'cloud-sun', class: 'icon-cloud-sun' };
+      } else if (val >= 4 && val <= 7) {
+        return { icon: 'cloud', class: 'icon-cloud' };
+      } else if ((val >= 8 && val <= 22) || (val >= 29 && val <= 32)) {
+        if (wxDesc.includes('雷') || wxDesc.includes('電')) {
+          return { icon: 'cloud-lightning', class: 'icon-thunder' };
+        }
+        return { icon: 'cloud-rain', class: 'icon-rain' };
+      } else if (val >= 23 && val <= 28) {
+        return { icon: 'cloud-lightning', class: 'icon-thunder' };
+      } else {
+        return { icon: 'cloud-sun', class: 'icon-cloud-sun' };
+      }
+    }
+
+    // 將 API 的時間字串轉為更好讀的格式 (例如：07/02 白天 或 07/02 晚上)
+    function formatTimeLabel(startTimeStr, endTimeStr, tab = '36h') {
+      const start = new Date(startTimeStr.replace(/-/g, '/'));
+      
+      const month = start.getMonth() + 1;
+      const date = start.getDate();
+      
+      const startHour = start.getHours();
+      let period = '';
+      
+      if (startHour >= 6 && startHour < 18) {
+        period = '白天';
+      } else {
+        period = '晚上/凌晨';
+      }
+      
+      if (tab === 'weekly') {
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        const dayOfWeek = weekdays[start.getDay()];
+        return `${month}/${date} (週${dayOfWeek}) ${period}`;
+      }
+      
+      return `${month}/${date} ${period}`;
+    }
+
+    // 載入縣市清單
+    async function loadCounties() {
+      try {
+        const res = await fetch('/api/counties');
+        const data = await res.json();
+        if (data.success) {
+          const select = document.getElementById('countySelect');
+          select.innerHTML = '';
+          data.counties.forEach(county => {
+            const option = document.createElement('option');
+            option.value = county;
+            option.textContent = county;
+            if (county === currentCounty) {
+              option.selected = true;
+            }
+            select.appendChild(option);
+          });
+        }
+      } catch (err) {
+        console.error('載入縣市失敗:', err);
+      }
+    }
+
+    // 載入天氣資料
+    async function loadWeatherData(county, tab = '36h') {
+      const container = document.getElementById('forecastContainer');
+      container.innerHTML = `
+        <div class="forecast-card skeleton forecast-skeleton"></div>
+        <div class="forecast-card skeleton forecast-skeleton"></div>
+        <div class="forecast-card skeleton forecast-skeleton"></div>
+      `;
+
+      if (tab === 'weekly') {
+        container.classList.add('weekly-layout');
+      } else {
+        container.classList.remove('weekly-layout');
+      }
+
+      const apiEndpoint = tab === 'weekly' ? '/api/weekly_weather' : '/api/weather';
+
+      const chkCwa = document.getElementById('chkUseCustomCwa');
+      const txtCwa = document.getElementById('txtCwaApiKey');
+      const useCwa = chkCwa && chkCwa.checked;
+      const cwaKey = txtCwa ? txtCwa.value.trim() : '';
+
+      let url = `${apiEndpoint}?location=${encodeURIComponent(county)}`;
+      if (useCwa && cwaKey) {
+        url += `&use_custom_cwa=true&cwa_key=${encodeURIComponent(cwaKey)}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.success) {
+          container.innerHTML = '';
+          data.forecasts.forEach(f => {
+            const style = getWeatherStyle(f.wx_value, f.wx_desc);
+            const timeLabel = formatTimeLabel(f.start_time, f.end_time, tab);
+            
+            const card = document.createElement('div');
+            card.className = 'forecast-card';
+            
+            // 降雨機率
+            const hasPop = (f.pop !== undefined && f.pop !== null);
+            let popHtml = '';
+            if (hasPop) {
+              popHtml = `
+                <div class="stat-item" style="flex: 1;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><i data-lucide="umbrella" style="width:12px; height:12px;"></i>降雨</span>
+                  <span class="stat-val">${f.pop}%</span>
+                </div>`;
+            } else {
+              const isRainy = f.wx_desc && (f.wx_desc.includes('雨') || f.wx_desc.includes('陣雨') || f.wx_desc.includes('雷雨'));
+              popHtml = `
+                <div class="stat-item" style="flex: 1;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><i data-lucide="droplet" style="width:12px; height:12px;"></i>降雨</span>
+                  <span class="stat-val" style="color: ${isRainy ? 'var(--accent-cyan)' : 'var(--text-secondary)'}; font-weight: 600;">
+                    ${isRainy ? '有雨 🌧️' : '無雨 ☀️'}
+                  </span>
+                </div>`;
+            }
+
+            // 體感舒適度
+            const ciHtml = f.ci ? `
+                <div class="stat-item" style="flex: 1;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><i data-lucide="smile" style="width:12px; height:12px;"></i>體感</span>
+                  <span class="stat-val" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px;" title="${f.ci}">${f.ci}</span>
+                </div>` : `
+                <div class="stat-item" style="flex: 1;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><i data-lucide="info" style="width:12px; height:12px;"></i>狀態</span>
+                  <span class="stat-val" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px;" title="${f.wx_desc}">${f.wx_desc}</span>
+                </div>`;
+
+            // 紫外線指數 (若存在且非空/非 -)
+            let uvHtml = '';
+            if (f.uv_index && f.uv_index !== '-') {
+              uvHtml = `
+                <div class="stat-item" style="flex: 1; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 0.5rem; width: 100%;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><i data-lucide="sun" style="width:12px; height:12px; color: #f59e0b;"></i>紫外線</span>
+                  <span class="stat-val" style="font-size: 0.8rem;">${f.uv_index}</span>
+                </div>`;
+            }
+
+            // 風力風向 (若存在且非空/非 -)
+            let windHtml = '';
+            if (f.wind && f.wind !== '-') {
+              windHtml = `
+                <div class="stat-item" style="flex: 1; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 0.5rem; width: 100%;">
+                  <span style="font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 0.2rem;"><i data-lucide="wind" style="width:12px; height:12px;"></i>風速</span>
+                  <span class="stat-val" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;" title="${f.wind}">${f.wind}</span>
+                </div>`;
+            }
+
+            card.innerHTML = `
+              <span class="time-badge">${timeLabel}</span>
+              <div class="weather-icon-wrapper">
+                <i data-lucide="${style.icon}" class="${style.class}" style="width:40px; height:40px;"></i>
+              </div>
+              <span class="weather-desc">${f.wx_desc}</span>
+              <div class="temp-range">
+                ${f.min_t}°<span style="font-size: 1.25rem; font-weight:400; color:var(--text-secondary);">~</span>${f.max_t}<span class="temp-unit">°C</span>
+              </div>
+              <div class="forecast-stats" style="flex-wrap: wrap; gap: 0.5rem;">
+                <div style="display: flex; width: 100%; justify-content: space-around;">
+                  ${popHtml}
+                  ${ciHtml}
+                </div>
+                ${uvHtml}
+                ${windHtml}
+              </div>
+            `;
+            container.appendChild(card);
+          });
+          
+          // 更新 Chart.js 溫度折線圖
+          updateTempChart(data.forecasts, tab);
+          
+          const lastUpdated = new Date(data.updated_at.replace(/-/g, '/'));
+          if (data.is_syncing) {
+            document.getElementById('statusDot').className = 'status-dot syncing';
+            document.getElementById('syncText').textContent = '資料庫背景同步中...';
+            if (syncPollTimer) clearTimeout(syncPollTimer);
+            syncPollTimer = setTimeout(() => {
+              updateView();
+            }, 3000);
+          } else {
+            document.getElementById('statusDot').className = 'status-dot';
+            document.getElementById('syncText').textContent = `最新同步時間: ${lastUpdated.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            if (syncPollTimer) {
+              clearTimeout(syncPollTimer);
+              syncPollTimer = null;
+            }
+          }
+          lucide.createIcons();
+        } else {
+          container.innerHTML = `<div class="forecast-card" style="grid-column: 1 / -1; color: var(--accent-pink);">❌ 載入失敗: ${data.message}</div>`;
+        }
+      } catch (err) {
+        console.error('載入天氣錯誤:', err);
+        container.innerHTML = `<div class="forecast-card" style="grid-column: 1 / -1; color: var(--accent-pink);">❌ 網路連線錯誤，無法取得天氣。</div>`;
+      }
+    }
+
+    // 更新 Chart.js 溫度趨勢圖
+    function updateTempChart(forecasts, tab) {
+      const ctx = document.getElementById('tempChart').getContext('2d');
+      
+      const labels = forecasts.map(f => {
+        const label = formatTimeLabel(f.start_time, f.end_time, tab);
+        return label.split(' ')[0] + (label.split(' ')[1] ? '\n' + label.split(' ')[1] : '');
+      });
+      
+      const maxTemps = forecasts.map(f => f.max_t);
+      const minTemps = forecasts.map(f => f.min_t);
+
+      if (tempChart) {
+        tempChart.destroy();
+      }
+
+      // 漸層色
+      const maxGradient = ctx.createLinearGradient(0, 0, 0, 200);
+      maxGradient.addColorStop(0, 'rgba(236, 72, 153, 0.35)');
+      maxGradient.addColorStop(1, 'rgba(236, 72, 153, 0.0)');
+
+      const minGradient = ctx.createLinearGradient(0, 0, 0, 200);
+      minGradient.addColorStop(0, 'rgba(6, 182, 212, 0.35)');
+      minGradient.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+
+      tempChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '最高溫 (°C)',
+              data: maxTemps,
+              borderColor: '#ec4899',
+              backgroundColor: maxGradient,
+              borderWidth: 2.5,
+              tension: 0.4,
+              fill: true,
+              pointBackgroundColor: '#ec4899',
+              pointBorderColor: '#ffffff',
+              pointHoverRadius: 6
+            },
+            {
+              label: '最低溫 (°C)',
+              data: minTemps,
+              borderColor: '#06b6d4',
+              backgroundColor: minGradient,
+              borderWidth: 2.5,
+              tension: 0.4,
+              fill: true,
+              pointBackgroundColor: '#06b6d4',
+              pointBorderColor: '#ffffff',
+              pointHoverRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                color: '#f8fafc',
+                font: { family: "'Outfit', 'Noto Sans TC', sans-serif", size: 11, weight: '500' }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                title: function(context) {
+                  return context[0].label.replace('\n', ' ');
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: {
+                color: '#94a3b8',
+                font: { family: "'Outfit', 'Noto Sans TC', sans-serif", size: 10 }
+              }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: {
+                color: '#94a3b8',
+                font: { family: "'Outfit', 'Noto Sans TC', sans-serif", size: 10 },
+                callback: function(value) { return value + '°C'; }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // 載入 AI 智慧建議
+    async function loadAILifeAdvice(county, force = false, tab = '36h') {
+      const aiContent = document.getElementById('aiContent');
+      const timeBadge = document.getElementById('aiGeneratedTime');
+      
+      timeBadge.textContent = '生成中...';
+      aiContent.innerHTML = `
+        <div class="ai-skeleton">
+          <div class="skeleton ai-skeleton-line"></div>
+          <div class="skeleton ai-skeleton-line"></div>
+          <div class="skeleton ai-skeleton-line"></div>
+          <div class="skeleton ai-skeleton-line"></div>
+          <div class="skeleton ai-skeleton-line"></div>
+        </div>
+      `;
+
+      // 讀取自訂 AI 設定
+      const chkCustomApi = document.getElementById('chkUseCustomApi');
+      const txtCustomApiKey = document.getElementById('txtCustomApiKey');
+      const useAI = chkCustomApi && chkCustomApi.checked;
+      const apiKey = txtCustomApiKey ? txtCustomApiKey.value.trim() : '';
+
+      // 讀取自訂 CWA 設定
+      const chkCwa = document.getElementById('chkUseCustomCwa');
+      const txtCwa = document.getElementById('txtCwaApiKey');
+      const useCwa = chkCwa && chkCwa.checked;
+      const cwaKey = txtCwa ? txtCwa.value.trim() : '';
+
+      let url = `/api/ai_advice?location=${encodeURIComponent(county)}&force_refresh=${force}&type=${tab}`;
+      if (useAI && apiKey) {
+        url += `&use_custom=true&api_key=${encodeURIComponent(apiKey)}`;
+      }
+      if (useCwa && cwaKey) {
+        url += `&use_custom_cwa=true&cwa_key=${encodeURIComponent(cwaKey)}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.success) {
+          aiContent.innerHTML = marked.parse(data.advice);
+          const now = new Date();
+          timeBadge.textContent = `生成於 ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+          lucide.createIcons();
+        } else {
+          aiContent.innerHTML = `<p style="color: var(--accent-pink);">🤖 AI 助理產生建議時發生錯誤：${data.message}</p>`;
+          timeBadge.textContent = '生成失敗';
+        }
+      } catch (err) {
+        console.error('AI 建議獲取失敗:', err);
+        aiContent.innerHTML = `<p style="color: var(--accent-pink);">🤖 無法連線至伺服器或 OpenAI，請檢查網路連線。</p>`;
+        timeBadge.textContent = '連線失敗';
+      }
+    }
+
+    // 更新整個儀表板視圖
+    async function updateView() {
+      await loadWeatherData(currentCounty, currentTab);
+      await loadAILifeAdvice(currentCounty, false, currentTab);
+      updateWindyMap(currentCounty);
+    }
+
+    // 切換預報分頁頁籤
+    async function switchForecastTab(tab) {
+      if (currentTab === tab) return;
+      currentTab = tab;
+      
+      document.getElementById('tab36h').classList.toggle('active', tab === '36h');
+      document.getElementById('tabWeekly').classList.toggle('active', tab === 'weekly');
+      
+      await updateView();
+    }
+
+    // 初始化與監聽器
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadCounties();
+      await updateView();
+      
+      // 縣市切換監聽
+      document.getElementById('countySelect').addEventListener('change', async (e) => {
+        currentCounty = e.target.value;
+        await updateView();
+      });
+
+      // 重新生成 AI 分析按鈕
+      document.getElementById('btnAskAI').addEventListener('click', async () => {
+        await loadAILifeAdvice(currentCounty, true, currentTab);
+      });
+
+      // 手動同步全部氣象資料
+      document.getElementById('btnSyncAll').addEventListener('click', async () => {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('syncText');
+        const icon = document.getElementById('syncAllIcon');
+        
+        dot.className = 'status-dot syncing';
+        text.textContent = '同步 CWA API 中...';
+        icon.style.animation = 'spin 1s linear infinite';
+        
+        if (!document.getElementById('spinStyle')) {
+          const style = document.createElement('style');
+          style.id = 'spinStyle';
+          style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
+          document.head.appendChild(style);
+        }
+
+        const chkCwa = document.getElementById('chkUseCustomCwa');
+        const txtCwa = document.getElementById('txtCwaApiKey');
+        const useCwa = chkCwa && chkCwa.checked;
+        const cwaKey = txtCwa ? txtCwa.value.trim() : '';
+
+        let url = '/api/sync';
+        if (useCwa && cwaKey) {
+          url += `?use_custom_cwa=true&cwa_key=${encodeURIComponent(cwaKey)}`;
+        }
+
+        try {
+          const res = await fetch(url, { method: 'POST' });
+          const data = await res.json();
+          
+          if (data.success) {
+            alert(data.message);
+            await updateView();
+          } else {
+            alert(`同步失敗: ${data.message}`);
+            dot.className = 'status-dot';
+            text.textContent = '同步失敗';
+          }
+        } catch (err) {
+          console.error(err);
+          alert('連線伺服器同步失敗！');
+          dot.className = 'status-dot';
+          text.textContent = '同步連線失敗';
+        } finally {
+          icon.style.animation = '';
+        }
+      });
+
+      // (自訂 AI 金鑰已改為單一輸入框，故移除互斥邏輯)
+
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
