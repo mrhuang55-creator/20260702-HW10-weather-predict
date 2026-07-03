@@ -12,7 +12,10 @@ from dotenv import load_dotenv
 # 2. .env（公開範本，佔位符，可安全上傳 GitHub）
 _private_env = os.path.join(os.path.dirname(os.path.abspath(__file__)), "env.private")
 if os.path.exists(_private_env):
+    _backup_port = os.getenv("PORT")
     load_dotenv(_private_env, override=True)
+    if _backup_port:
+        os.environ["PORT"] = _backup_port
 else:
     load_dotenv()  # fallback 到 .env
 
